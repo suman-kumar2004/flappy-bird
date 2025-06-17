@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flappy Bird</title>
+    <style>
+        /* Gradient background for outside the canvas */
+        body {
+          font-family: Arial, sans-serif;
+    text-align: center;
+    background: linear-gradient(to bottom, #000428, #004e92); /* Updated gradient background */
+    height: 100vh;
+    margin: 0;
+}
+
+
+canvas {
+            border: 10px solid #4747ff; /* Pattern border around the canvas */
+            background-color: #87CEFA;
+            margin-top: 20px;
+        }
+
+
+        /* Popup styles */
+        #gameOverPopup {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 20px;
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            text-align: center;
+            border-radius: 10px;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.5);
+        }
+
+        #retryButton {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        #retryButton:hover {
+            background-color: #45a049;
+        }
+
+        #startButton {
+            padding: 10px 20px;
+            font-size: 18px;
+            cursor: pointer;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+        }
+
+        #startButton:hover {
+            background-color: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <h1>Flappy Bird</h1>
+    <canvas id="flappyBirdCanvas" width="800" height="600"></canvas>
+    <button id="startButton">Start Flappy Bird</button>
+    <br>
+    <a href="index.html"><button>Back to Home</button></a>
+
+    <!-- Game Over Popup -->
+    <div id="gameOverPopup" style="display:none;">
+        <p>Game Over! Your score: <span id="finalScore"></span></p>
+        <button id="retryButton">Retry</button>
+    </div>
+
+    <script>
+        // Get canvas and context
+        let flappyBirdCanvas = document.getElementById("flappyBirdCanvas");
+        let flappyCtx = flappyBirdCanvas.getContext("2d");
+
+        // Load images
+        let birdImg = new Image();
+        birdImg.src = "images/bird.png"; // Replace with actual bird image URL
+        let pipeImg = new Image();
+        pipeImg.src = "images/p1.png"; // Replace with actual pipe image URL
+        let bgImg = new Image();
+        bgImg.src = "images/back.png"; // Replace with actual background image URL
+
+        // Bird object with properties
+        let bird = { x: 50, y: 150, width: 40, height: 40, gravity: 0.6, lift: -9, velocity: 0 };
+
+        // Game variables
+        let pipes = [];
+        let frameCount = 0;
+        let isGameOver = false;
+        let speedControl = 0;
+        let score = 0;
+        let gameStarted = false;  // Track if the game has started
+
+        // Game Over Popup
+        let gameOverPopup = document.getElementById('gameOverPopup');
+        let finalScore = document.getElementById('finalScore');
+        let retryButton = document.getElementById('retryButton');
+
+        // Function to start the game
+        function startFlappyBird() {
+            bird.y = 150;
+            bird.velocity = 0;
+            pipes = [];
+            frameCount = 0;
+            score = 0;
+            isGameOver = false;
+            gameStarted = true; // Game has started
+            document.getElementById('startButton').style.display = 'none'; // Hide start button
+            requestAnimationFrame(updateFlappyBird);
+        }
+
+        // Function to update the game state
+        function updateFlappyBird() {
+            if (isGameOver) return;
+
+            // Slow down the game by skipping frames
+            speedControl++;
+            if (speedControl % 2 !== 0) {
+                requestAnimationFrame(updateFlappyBird);
+                return;
+            }
+
+            flappyCtx.clearRect(0, 0, flappyBirdCanvas.width, flappyBirdCanvas.height);
+
+            // Draw background image
+            flappyCtx.drawImage(bgImg, 0, 0, flappyBirdCanvas.width, flappyBirdCanvas.height);
+
+            // Update bird position
+            bird.velocity += bird.gravity;
+            bird.velocity = Math.min(bird.velocity, 10); // Cap the downward speed
+            bird.y += bird.velocity;
+
+            // Check for boundary collision (top and bottom of the canvas)
+            if (bird.y + bird.height >= flappyBirdCanvas.height || bird.y <= 0) {
+                gameOver();
+                return;
+            }
+
+            // Draw the bird image
+            flappyCtx.drawImage(birdImg, bird.x, bird.y, bird.width, bird.height);
+
+            // Spawn new pipes at intervals
+            if (frameCount % 150 === 0) {
+                let pipeHeight = Math.random() * (flappyBirdCanvas.height / 2);
+                pipes.push({ x: flappyBirdCanvas.width, y: pipeHeight });
+            }
+
+            // Update and draw pipes
+            for (let i = 0; i < pipes.length; i++) {
+                pipes[i].x -= 2; // Adjust speed for wider canvas
+
+                // Remove pipes that go off-screen
+                if (pipes[i].x < -30) pipes.splice(i, 1);
+
+                // Draw top and bottom pipes
+                flappyCtx.drawImage(pipeImg, pipes[i].x, 0, 30, pipes[i].y);
+                flappyCtx.drawImage(pipeImg, pipes[i].x, pipes[i].y + 150, 30, flappyBirdCanvas.height);
+
+                // Check for collision with pipes
+                if (
+                    bird.x < pipes[i].x + 30 &&
+                    bird.x + bird.width > pipes[i].x &&
+                    (bird.y < pipes[i].y || bird.y + bird.height > pipes[i].y + 150)
+                ) {
+                    gameOver();
+                    return;
+                }
+
+                // Increment the score when the bird passes a pipe
+                if (!pipes[i].scored && pipes[i].x + 30 < bird.x) {
+                    score++;
+                    pipes[i].scored = true; // Mark the pipe as scored
+                }
+            }
+
+            // Draw the score
+            flappyCtx.fillStyle = "white";
+            flappyCtx.font = "24px Arial";
+            flappyCtx.fillText(`Score: ${score}`, flappyBirdCanvas.width - 100, 30);
+
+            frameCount++;
+            requestAnimationFrame(updateFlappyBird);
+        }
+
+        // Game Over function to display the popup
+        function gameOver() {
+            isGameOver = true;
+            finalScore.textContent = score;  // Display the score in the popup
+            gameOverPopup.style.display = 'block';  // Show the popup
+        }
+
+        // Retry button functionality
+        retryButton.addEventListener('click', function() {
+            gameOverPopup.style.display = 'none';  // Hide the popup
+            startFlappyBird();  // Restart the game
+        });
+
+        // Event listener for bird controls (space or up arrow)
+        window.addEventListener("keydown", (e) => {
+            if (e.code === "Space" || e.code === "ArrowUp") {
+                if (gameStarted) {
+                    bird.velocity = bird.lift;
+                }
+            }
+        });
+
+        // Event listener for starting the game (on first click)
+        document.getElementById('startButton').addEventListener('click', function() {
+            startFlappyBird();  // Start the game when the button is clicked
+        });
+    </script>
+</body>
+</html>
